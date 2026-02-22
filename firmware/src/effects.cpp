@@ -61,6 +61,11 @@ bool glyphForChar(uint16_t cp, uint8_t out[5]) {
   if (cp == '-') { uint8_t t[5] = {0x08,0x08,0x08,0x08,0x08}; memcpy(out,t,5); return true; }
 
   // Cyrillic uppercase А..Я in UTF-8 -> U+0410..U+042F mapped roughly to Latin-like glyphs.
+  if (cp == 0x0401) {
+    uint8_t t[5] = {0x7F, 0x49, 0x49, 0x49, 0x41};
+    memcpy(out, t, 5);
+    return true;
+  }
   if (cp >= 0x0410 && cp <= 0x042F) {
     static const uint8_t simple[5] = {0x7F,0x49,0x49,0x49,0x36};
     memcpy(out, simple, 5);
@@ -100,6 +105,8 @@ void renderTextFrame() {
   for (uint16_t i = 0; i < gState->text.length();) {
     uint16_t cp = decodeUtf8(gState->text, i);
     if (cp >= 'a' && cp <= 'z') cp -= 32;
+    if (cp >= 0x0430 && cp <= 0x044F) cp -= 0x20;
+    if (cp == 0x0451) cp = 0x0401;
     uint8_t glyph[5];
     if (!glyphForChar(cp, glyph)) continue;
     for (uint8_t col = 0; col < 5; col++) {

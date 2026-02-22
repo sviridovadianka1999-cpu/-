@@ -8,7 +8,7 @@ static const uint16_t MATRIX_H = 8;
 static const uint16_t NUM_LEDS = MATRIX_W * MATRIX_H;
 
 static const bool SERPENTINE = true;
-static const bool FIRST_ROW_RIGHT_TO_LEFT = true;
+static const bool FIRST_ROW_RIGHT_TO_LEFT = false;
 
 static const uint8_t DATA_PIN = 4; // D2 on NodeMCU
 static const EOrder COLOR_ORDER = GRB;
