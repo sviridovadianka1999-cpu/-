@@ -146,6 +146,7 @@ void apiInit(ESP8266WebServer *http, WebSocketsServer *ws, AppState *state, Wifi
   gHttp->on("/wifi", HTTP_GET, handleWifiPage);
   gHttp->on("/wifi", HTTP_POST, handleWifiPost);
 
+  gHttp->begin();
   gWs->begin();
   gWs->onEvent(wsEvent);
 }

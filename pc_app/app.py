@@ -39,6 +39,8 @@ class MatrixApp(tk.Tk):
         self.color2 = "#0000FF"
         self.color3 = "#8000FF"
         self.text_color = "#FF0000"
+        self.http = requests.Session()
+        self.http.trust_env = False
 
         self._build_ui()
 
@@ -128,7 +130,7 @@ class MatrixApp(tk.Tk):
 
     def apply_state(self):
         try:
-            r = requests.post(f"{self.base_url()}/api/apply", json=self.payload(), timeout=3)
+            r = self.http.post(f"{self.base_url()}/api/apply", json=self.payload(), timeout=3)
             r.raise_for_status()
             self.status_var.set(f"Применено: {r.json().get('mode', '?')}")
         except Exception as e:
@@ -136,14 +138,14 @@ class MatrixApp(tk.Tk):
 
     def turn_off(self):
         try:
-            requests.post(f"{self.base_url()}/api/apply", json={"set_mode": "off", "save_config": True}, timeout=3)
+            self.http.post(f"{self.base_url()}/api/apply", json={"set_mode": "off", "save_config": True}, timeout=3)
             self.status_var.set("Матрица выключена")
         except Exception as e:
             self.status_var.set(f"Ошибка off: {e}")
 
     def fetch_status(self):
         try:
-            r = requests.get(f"{self.base_url()}/api/status", timeout=3)
+            r = self.http.get(f"{self.base_url()}/api/status", timeout=3)
             r.raise_for_status()
             data = r.json()
             self.mode_var.set(data.get("mode", "color"))
@@ -197,7 +199,7 @@ class MatrixApp(tk.Tk):
             for ip in net.hosts():
                 addr = str(ip)
                 try:
-                    r = requests.get(f"http://{addr}/api/status", timeout=0.25)
+                    r = self.http.get(f"http://{addr}/api/status", timeout=0.25)
                     if r.ok and "mode" in r.text:
                         candidates.append(addr)
                         break
