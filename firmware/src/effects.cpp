@@ -10,6 +10,7 @@ uint8_t gHue = 0;
 uint32_t gLastStepMs = 0;
 
 std::vector<uint8_t> gHeat(NUM_LEDS, 0);
+std::vector<uint8_t> gFireCols(MATRIX_W, 0);
 std::vector<uint8_t> gDrops(MATRIX_W, 0);
 int16_t gBounceX = 0, gBounceY = 0;
 int8_t gVelX = 1, gVelY = 1;
@@ -67,16 +68,18 @@ bool glyphForChar(uint16_t cp, uint8_t out[5]) {
     return true;
   }
   if (cp >= 0x0410 && cp <= 0x042F) {
-    static const uint8_t simple[5] = {0x7F,0x49,0x49,0x49,0x36};
+    static const uint8_t simple[5] = {0x00,0x00,0x5F,0x00,0x00};
     memcpy(out, simple, 5);
     switch (cp) {
       case 0x0410: {uint8_t t[5]={0x7E,0x11,0x11,0x11,0x7E}; memcpy(out,t,5);} break; // А
       case 0x0412: {uint8_t t[5]={0x7F,0x49,0x49,0x49,0x36}; memcpy(out,t,5);} break; // В
       case 0x0415: {uint8_t t[5]={0x7F,0x49,0x49,0x49,0x41}; memcpy(out,t,5);} break; // Е
+      case 0x0418: {uint8_t t[5]={0x7F,0x04,0x08,0x10,0x7F}; memcpy(out,t,5);} break; // И
       case 0x041A: {uint8_t t[5]={0x7F,0x08,0x14,0x22,0x41}; memcpy(out,t,5);} break; // К
       case 0x041C: {uint8_t t[5]={0x7F,0x02,0x0C,0x02,0x7F}; memcpy(out,t,5);} break; // М
       case 0x041D: {uint8_t t[5]={0x7F,0x08,0x08,0x08,0x7F}; memcpy(out,t,5);} break; // Н
       case 0x041E: {uint8_t t[5]={0x3E,0x41,0x41,0x41,0x3E}; memcpy(out,t,5);} break; // О
+      case 0x041F: {uint8_t t[5]={0x7F,0x01,0x01,0x01,0x7F}; memcpy(out,t,5);} break; // П
       case 0x0420: {uint8_t t[5]={0x7F,0x09,0x09,0x09,0x06}; memcpy(out,t,5);} break; // Р
       case 0x0421: {uint8_t t[5]={0x3E,0x41,0x41,0x41,0x22}; memcpy(out,t,5);} break; // С
       case 0x0422: {uint8_t t[5]={0x01,0x01,0x7F,0x01,0x01}; memcpy(out,t,5);} break; // Т
@@ -150,21 +153,51 @@ void effectGradient() {
   }
 }
 
+CRGB firePaletteColor(uint8_t v) {
+  if (v <= 20) return CRGB(0, 0, 0);
+  if (v <= 80) return CRGB(map(v, 21, 80, 35, 130), 0, 0);
+  if (v <= 140) return CRGB(180, map(v, 81, 140, 30, 90), 0);
+  if (v <= 210) return CRGB(255, map(v, 141, 210, 120, 220), map(v, 141, 210, 0, 40));
+  return CRGB(255, 240, map(v, 211, 255, 80, 180));
+}
+
 void effectFire() {
+  std::vector<uint8_t> smoothed(MATRIX_W, 0);
+
   for (uint8_t x = 0; x < MATRIX_W; x++) {
-    gHeat[XY(x, MATRIX_H - 1)] = qsub8(gHeat[XY(x, MATRIX_H - 1)], random8(0, 40));
-    if (random8() < 100) gHeat[XY(x, MATRIX_H - 1)] = qadd8(gHeat[XY(x, MATRIX_H - 1)], random8(100, 255));
+    uint8_t base = random8(130, 220);
+    if (random8() < 70) base = qadd8(base, random8(20, 80));
+    gFireCols[x] = scale8(gFireCols[x], 170);
+    gFireCols[x] = qadd8(gFireCols[x], base);
   }
-  for (int y = MATRIX_H - 2; y >= 0; --y) {
+
+  for (uint8_t x = 0; x < MATRIX_W; x++) {
+    uint8_t l = gFireCols[(x == 0) ? MATRIX_W - 1 : x - 1];
+    uint8_t c = gFireCols[x];
+    uint8_t r = gFireCols[(x + 1) % MATRIX_W];
+    smoothed[x] = (l + c + r) / 3;
+  }
+
+  for (uint8_t x = 0; x < MATRIX_W; x++) {
+    uint8_t spike = (random8() < 35) ? random8(20, 90) : 0;
+    gFireCols[x] = qadd8(scale8(smoothed[x], 220), spike);
+  }
+
+  for (uint8_t y = 0; y < MATRIX_H; y++) {
     for (uint8_t x = 0; x < MATRIX_W; x++) {
-      uint8_t below = gHeat[XY(x, y + 1)];
-      uint8_t left = gHeat[XY((x == 0 ? MATRIX_W - 1 : x - 1), y + 1)];
-      uint8_t right = gHeat[XY((x + 1) % MATRIX_W, y + 1)];
-      gHeat[XY(x, y)] = (below + left + right) / 3;
+      uint8_t fromBottom = MATRIX_H - 1 - y;
+      uint8_t fade = fromBottom * 34;
+      uint8_t heat = qsub8(gFireCols[x], fade);
+
+      if (fromBottom >= 4) heat = qsub8(heat, random8(20, 90));
+      if (fromBottom >= 6 && random8() < 170) heat = 0;
+      if (fromBottom >= 5 && random8() < 90) heat = qsub8(heat, random8(40, 120));
+
+      if (fromBottom <= 1 && random8() < 55) heat = qadd8(heat, random8(20, 70));
+
+      gLeds[XY(x, y)] = firePaletteColor(heat);
     }
   }
-  for (uint8_t y = 0; y < MATRIX_H; y++)
-    for (uint8_t x = 0; x < MATRIX_W; x++) gLeds[XY(x, y)] = HeatColor(gHeat[XY(x, y)]);
 }
 
 void effectMatrixRain() {
