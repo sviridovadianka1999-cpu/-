@@ -154,51 +154,71 @@ void effectGradient() {
 }
 
 CRGB firePaletteColor(uint8_t v) {
-  if (v <= 20) return CRGB(0, 0, 0);
-  if (v <= 80) return CRGB(map(v, 21, 80, 35, 130), 0, 0);
-  if (v <= 140) return CRGB(180, map(v, 81, 140, 30, 90), 0);
-  if (v <= 210) return CRGB(255, map(v, 141, 210, 120, 220), map(v, 141, 210, 0, 40));
-  return CRGB(255, 240, map(v, 211, 255, 80, 180));
+  if (v <= 10) return CRGB(0, 0, 0);
+  if (v <= 30) return CRGB(map(v, 11, 30, 8, 28), 0, 0);
+  if (v <= 90) return CRGB(map(v, 31, 90, 40, 130), 0, 0);
+  if (v <= 150) return CRGB(map(v, 91, 150, 140, 220), map(v, 91, 150, 8, 40), 0);
+  if (v <= 210) return CRGB(255, map(v, 151, 210, 45, 130), 0);
+  if (v <= 245) return CRGB(255, map(v, 211, 245, 140, 220), map(v, 211, 245, 0, 35));
+  return CRGB(255, 245, map(v, 246, 255, 60, 120));
 }
 
 void effectFire() {
-  std::vector<uint8_t> smoothed(MATRIX_W, 0);
+  std::vector<uint8_t> smoothCols(MATRIX_W, 0);
+  std::vector<uint8_t> fireHeight(MATRIX_W, 0);
 
   for (uint8_t x = 0; x < MATRIX_W; x++) {
-    uint8_t base = random8(130, 220);
-    if (random8() < 70) base = qadd8(base, random8(20, 80));
-    gFireCols[x] = scale8(gFireCols[x], 170);
-    gFireCols[x] = qadd8(gFireCols[x], base);
+    uint8_t base = random8(85, 155);
+    if (random8() < 45) base = qadd8(base, random8(25, 75));
+    gFireCols[x] = qadd8(scale8(gFireCols[x], 185), base);
   }
 
   for (uint8_t x = 0; x < MATRIX_W; x++) {
     uint8_t l = gFireCols[(x == 0) ? MATRIX_W - 1 : x - 1];
     uint8_t c = gFireCols[x];
     uint8_t r = gFireCols[(x + 1) % MATRIX_W];
-    smoothed[x] = (l + c + r) / 3;
+    smoothCols[x] = (l + c + r + c) / 4;
   }
 
   for (uint8_t x = 0; x < MATRIX_W; x++) {
-    uint8_t spike = (random8() < 35) ? random8(20, 90) : 0;
-    gFireCols[x] = qadd8(scale8(smoothed[x], 220), spike);
+    uint8_t spike = (random8() < 28) ? random8(18, 65) : 0;
+    gFireCols[x] = qadd8(scale8(smoothCols[x], 215), spike);
+
+    uint8_t h = map(gFireCols[x], 0, 255, 2, MATRIX_H);
+    if (random8() < 25) h = min((uint8_t)MATRIX_H, (uint8_t)(h + 1));
+    if (random8() < 12) h = min((uint8_t)MATRIX_H, (uint8_t)(h + 2));
+    fireHeight[x] = h;
   }
 
   for (uint8_t y = 0; y < MATRIX_H; y++) {
     for (uint8_t x = 0; x < MATRIX_W; x++) {
-      uint8_t fromBottom = MATRIX_H - 1 - y;
-      uint8_t fade = fromBottom * 34;
-      uint8_t heat = qsub8(gFireCols[x], fade);
+      uint8_t dy = MATRIX_H - 1 - y;
+      uint8_t h = fireHeight[x];
+      int16_t heat = 0;
 
-      if (fromBottom >= 4) heat = qsub8(heat, random8(20, 90));
-      if (fromBottom >= 6 && random8() < 170) heat = 0;
-      if (fromBottom >= 5 && random8() < 90) heat = qsub8(heat, random8(40, 120));
+      if (dy <= h) {
+        heat = (int16_t)gFireCols[x] - (int16_t)dy * 34;
 
-      if (fromBottom <= 1 && random8() < 55) heat = qadd8(heat, random8(20, 70));
+        if (dy >= h - 1 && random8() < 150) heat -= random8(50, 140);
+        if (dy >= h - 2 && random8() < 90) heat -= random8(20, 90);
+        if (dy >= 5 && random8() < 120) heat -= random8(30, 110);
+        if (dy >= 6 && random8() < 175) heat = 0;
 
-      gLeds[XY(x, y)] = firePaletteColor(heat);
+        int16_t jitter = (int16_t)random8(0, 36) - 18;
+        heat += jitter;
+      } else {
+        if (dy <= h + 1 && random8() < 18) heat = random8(18, 60);
+      }
+
+      if (dy <= 1 && heat > 220 && random8() < 220) heat = 220;
+      if (heat < 0) heat = 0;
+      if (heat > 255) heat = 255;
+
+      gLeds[XY(x, y)] = firePaletteColor((uint8_t)heat);
     }
   }
 }
+
 
 void effectMatrixRain() {
   fadeToBlackBy(gLeds, NUM_LEDS, 55);
