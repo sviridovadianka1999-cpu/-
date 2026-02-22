@@ -112,7 +112,8 @@ void handleWifiPost() {
 
 void wsEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t len) {
   if (type == WStype_CONNECTED) {
-    gWs->sendTXT(num, stateJson());
+    String payload = stateJson();
+    gWs->sendTXT(num, payload);
     return;
   }
   if (type != WStype_TEXT) return;
@@ -151,4 +152,7 @@ void apiInit(ESP8266WebServer *http, WebSocketsServer *ws, AppState *state, Wifi
 
 void apiHandleHttp() { gHttp->handleClient(); }
 void apiHandleWs() { gWs->loop(); }
-void apiBroadcastState() { gWs->broadcastTXT(stateJson()); }
+void apiBroadcastState() {
+  String payload = stateJson();
+  gWs->broadcastTXT(payload);
+}
